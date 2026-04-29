@@ -6,6 +6,24 @@
 
 AeroDetect: Benchmarking YOLO and Faster R-CNN for Aerial Object Detection
 
+## Datasets
+
+### Prerequisites
+
+Add your Kaggle API credentials to a `.env` file at the project root: `KAGGLE_KEY=your_kaggle_api_key`
+
+### Download
+
+One or more dataset names can be passed as positional arguments; `all` downloads everything:
+
+```bash
+uv run dataset military
+uv run dataset military skyfusion
+uv run dataset all
+```
+
+Run `uv run dataset --help` to see all options.
+
 ## Project Organization
 
 ```
