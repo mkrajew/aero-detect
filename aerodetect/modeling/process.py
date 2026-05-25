@@ -18,7 +18,9 @@ with all coordinates normalised to ``[0, 1]``.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from enum import Enum
+import json
 from pathlib import Path
 import shutil
 
@@ -41,11 +43,22 @@ SPLIT_MAP: dict[str, str] = {
 }
 
 YOLO_SPLITS: tuple[str, ...] = ("train", "val", "test")
+SKYFUSION_SPLIT_MAP: dict[str, str] = {
+    "train": "train",
+    "val": "valid",
+    "test": "test",
+}
 
 
 class TransferMode(str, Enum):
     move = "move"
     copy = "copy"
+
+
+class ProcessDataset(str, Enum):
+    military = "military"
+    skyfusion = "skyfusion"
+    all = "all"
 
 
 def _ensure_yolo_dirs(root: Path) -> None:
@@ -88,11 +101,20 @@ def _write_data_yaml(root: Path, classes: list[str]) -> Path:
     return yaml_path
 
 
+def _load_coco(path: Path) -> dict:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    required_fields = {"images", "annotations", "categories"}
+    missing = required_fields - set(payload)
+    if missing:
+        raise ValueError(
+            f"COCO annotations at {path} are missing required fields: {sorted(missing)}"
+        )
+    return payload
+
+
 def process_military(
-    labels_csv: Path | None = None,
     source_dir: Path | None = None,
     output_dir: Path | None = None,
-    image_ext: str = ".jpg",
     transfer_mode: TransferMode = TransferMode.move,
     overwrite: bool = False,
 ) -> Path:
@@ -100,15 +122,12 @@ def process_military(
 
     Parameters
     ----------
-    labels_csv:
-        Path to ``labels_with_split.csv``. Defaults to the raw military folder.
     source_dir:
-        Folder containing the raw ``<hash>.jpg`` images. Defaults to
-        ``data/raw/military/dataset``.
+        Folder containing raw military images.
+        Defaults to ``data/raw/military/dataset``.
     output_dir:
-        Destination root. Defaults to ``data/processed/military``.
-    image_ext:
-        Image file extension to look for (case-insensitive).
+        Destination root for processed military data.
+        Defaults to ``data/processed/military``.
     transfer_mode:
         ``move`` to relocate the images, ``copy`` to keep the source intact.
     overwrite:
@@ -122,9 +141,10 @@ def process_military(
     """
 
     military_raw = RAW_DATA_DIR / "military"
-    labels_csv = labels_csv or military_raw / "labels_with_split.csv"
+    labels_csv = military_raw / "labels_with_split.csv"
     source_dir = source_dir or military_raw / "dataset"
     output_dir = output_dir or PROCESSED_DATA_DIR / "military"
+    ext = ".jpg"
 
     if not labels_csv.is_file():
         raise FileNotFoundError(f"Labels CSV not found: {labels_csv}")
@@ -161,7 +181,6 @@ def process_military(
 
     stats = {split: 0 for split in YOLO_SPLITS}
     missing_images: list[str] = []
-    ext = image_ext if image_ext.startswith(".") else f".{image_ext}"
 
     grouped = df.groupby("filename", sort=False)
     for filename, rows in tqdm(grouped, total=grouped.ngroups, desc="military"):
@@ -223,46 +242,199 @@ def process_military(
     return output_dir
 
 
-@app.command("military")
-def cli_military(
-    labels_csv: Path = typer.Option(
-        None,
-        "--labels-csv",
-        help="Path to labels_with_split.csv (defaults to data/raw/military/labels_with_split.csv).",
-    ),
-    source_dir: Path = typer.Option(
-        None,
-        "--source-dir",
-        help="Folder containing raw .jpg images (defaults to data/raw/military/dataset).",
-    ),
-    output_dir: Path = typer.Option(
-        None,
-        "--output-dir",
-        help="Destination root (defaults to data/processed/military).",
-    ),
-    image_ext: str = typer.Option(
-        ".jpg", "--image-ext", help="Image extension to look for."
-    ),
-    transfer_mode: TransferMode = typer.Option(
-        TransferMode.move,
-        "--transfer-mode",
+def process_skyfusion(
+    source_dir: Path | None = None,
+    output_dir: Path | None = None,
+    transfer_mode: TransferMode = TransferMode.copy,
+    overwrite: bool = False,
+) -> Path:
+    """Convert SkyFusion (fixed COCO layout) into a YOLO layout."""
+
+    source_dir = source_dir or RAW_DATA_DIR / "skyfusion" / "SkyFusion"
+    output_dir = output_dir or PROCESSED_DATA_DIR / "skyfusion"
+
+    if not source_dir.is_dir():
+        raise FileNotFoundError(f"SkyFusion source folder not found: {source_dir}")
+
+    split_dirs = {split: source_dir / name for split, name in SKYFUSION_SPLIT_MAP.items()}
+    split_payloads: dict[str, dict] = {}
+    for split, split_dir in split_dirs.items():
+        if not split_dir.is_dir():
+            raise FileNotFoundError(f"SkyFusion split folder not found: {split_dir}")
+
+        ann_path = split_dir / "_annotations.coco.json"
+        if not ann_path.is_file():
+            raise FileNotFoundError(f"COCO annotations not found: {ann_path}")
+
+        logger.info(f"Reading {split} annotations from {ann_path}")
+        split_payloads[split] = _load_coco(ann_path)
+
+    categories = sorted(split_payloads["train"]["categories"], key=lambda c: int(c["id"]))
+    if not categories:
+        raise ValueError("No categories found in SkyFusion annotations.")
+
+    classes = [str(category["name"]) for category in categories]
+    category_to_class_id = {int(category["id"]): idx for idx, category in enumerate(categories)}
+    logger.info(f"Found {len(classes)} classes in SkyFusion")
+
+    _ensure_yolo_dirs(output_dir)
+
+    stats = {split: 0 for split in YOLO_SPLITS}
+    missing_images: list[str] = []
+
+    for split in YOLO_SPLITS:
+        payload = split_payloads[split]
+        split_dir = split_dirs[split]
+        image_by_id = {int(image["id"]): image for image in payload["images"]}
+        anns_by_image: dict[int, list[str]] = defaultdict(list)
+
+        for ann in payload["annotations"]:
+            image = image_by_id.get(int(ann["image_id"]))
+            if image is None:
+                continue
+
+            class_id = category_to_class_id.get(int(ann["category_id"]))
+            if class_id is None:
+                continue
+
+            bbox = ann.get("bbox")
+            if not isinstance(bbox, list) or len(bbox) < 4:
+                continue
+
+            x, y, w, h = map(float, bbox[:4])
+            if w <= 0 or h <= 0:
+                continue
+
+            img_w = int(image["width"])
+            img_h = int(image["height"])
+            xc, yc, bw, bh = _to_yolo_bbox(x, y, x + w, y + h, img_w, img_h)
+            if bw <= 0 or bh <= 0:
+                continue
+
+            anns_by_image[int(ann["image_id"])].append(
+                f"{class_id} {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}"
+            )
+
+        for image in tqdm(payload["images"], desc=f"skyfusion/{split}"):
+            image_id = int(image["id"])
+            file_name = Path(str(image["file_name"])).name
+            stem = Path(file_name).stem
+
+            image_src = split_dir / file_name
+            image_dst = output_dir / "images" / split / file_name
+            label_path = output_dir / "labels" / split / f"{stem}.txt"
+
+            if label_path.exists() and image_dst.exists() and not overwrite:
+                stats[split] += 1
+                continue
+
+            if not image_src.exists():
+                missing_images.append(str(image_src))
+                continue
+
+            lines = anns_by_image.get(image_id, [])
+            label_path.write_text(
+                "\n".join(lines) + ("\n" if lines else ""), encoding="utf-8"
+            )
+
+            if image_dst.exists() and overwrite:
+                image_dst.unlink()
+
+            if not image_dst.exists():
+                if transfer_mode is TransferMode.move:
+                    shutil.move(str(image_src), str(image_dst))
+                else:
+                    shutil.copy2(str(image_src), str(image_dst))
+
+            stats[split] += 1
+
+    yaml_path = _write_data_yaml(output_dir, classes)
+    logger.success(
+        "skyfusion processed → "
+        + ", ".join(f"{split}={stats[split]}" for split in YOLO_SPLITS)
+    )
+    logger.info(f"YOLO config written to {yaml_path}")
+    if missing_images:
+        logger.warning(
+            f"{len(missing_images)} image(s) referenced in COCO but missing on disk; "
+            f"first few: {missing_images[:5]}"
+        )
+
+    return output_dir
+
+
+@app.command()
+def main(
+    datasets: list[ProcessDataset] = typer.Argument(
+        ...,
         case_sensitive=False,
-        help="Move images from the source folder or copy them.",
+        help=(
+            "One or more datasets to process. "
+            f"Available: {', '.join(d.value for d in ProcessDataset)}."
+        ),
     ),
     overwrite: bool = typer.Option(
         False, "--overwrite", help="Re-create labels and re-transfer existing images."
     ),
+    military_source_dir: Path = typer.Option(
+        RAW_DATA_DIR / "military" / "dataset",
+        "--military-source-dir",
+        help="Source folder with military images.",
+    ),
+    military_output_dir: Path = typer.Option(
+        PROCESSED_DATA_DIR / "military",
+        "--military-output-dir",
+        help="Output folder for processed military dataset.",
+    ),
+    military_transfer_mode: TransferMode = typer.Option(
+        TransferMode.move,
+        "--military-transfer-mode",
+        case_sensitive=False,
+        help="Move or copy military images.",
+    ),
+    skyfusion_source_dir: Path = typer.Option(
+        RAW_DATA_DIR / "skyfusion" / "SkyFusion",
+        "--skyfusion-source-dir",
+        help="Source folder with SkyFusion train/valid/test splits.",
+    ),
+    skyfusion_output_dir: Path = typer.Option(
+        PROCESSED_DATA_DIR / "skyfusion",
+        "--skyfusion-output-dir",
+        help="Output folder for processed SkyFusion dataset.",
+    ),
+    skyfusion_transfer_mode: TransferMode = typer.Option(
+        TransferMode.copy,
+        "--skyfusion-transfer-mode",
+        case_sensitive=False,
+        help="Move or copy SkyFusion images.",
+    ),
 ) -> None:
-    """Convert the military aircraft dataset into a YOLO layout."""
+    """Convert selected raw datasets into YOLO-ready layouts."""
 
-    process_military(
-        labels_csv=labels_csv,
-        source_dir=source_dir,
-        output_dir=output_dir,
-        image_ext=image_ext,
-        transfer_mode=transfer_mode,
-        overwrite=overwrite,
-    )
+    if any(d == ProcessDataset.all for d in datasets):
+        targets = [ProcessDataset.military, ProcessDataset.skyfusion]
+    else:
+        targets = datasets
+
+    for dataset in targets:
+        if dataset == ProcessDataset.military:
+            path = process_military(
+                source_dir=military_source_dir,
+                output_dir=military_output_dir,
+                transfer_mode=military_transfer_mode,
+                overwrite=overwrite,
+            )
+        elif dataset == ProcessDataset.skyfusion:
+            path = process_skyfusion(
+                source_dir=skyfusion_source_dir,
+                output_dir=skyfusion_output_dir,
+                transfer_mode=skyfusion_transfer_mode,
+                overwrite=overwrite,
+            )
+        else:
+            raise ValueError(f"Unsupported dataset value: {dataset}")
+
+        logger.info(f"[{dataset.value}] processed dataset path: {path}")
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ dependencies = [
 
 [project.scripts]
 dataset = "aerodetect.dataset:app"
+process = "aerodetect.modeling.process:app"
 
 [build-system]
 requires = ["flit_core >=3.2,<4"]
