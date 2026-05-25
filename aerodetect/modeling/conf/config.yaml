@@ -1,0 +1,3 @@
+wandb:
+  entity: "aerodetect"
+  project: "detection-yolo"

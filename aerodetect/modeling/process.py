@@ -229,8 +229,7 @@ def process_military(
     yaml_path = _write_data_yaml(output_dir, classes)
 
     logger.success(
-        "military processed → "
-        + ", ".join(f"{split}={stats[split]}" for split in YOLO_SPLITS)
+        "military processed → " + ", ".join(f"{split}={stats[split]}" for split in YOLO_SPLITS)
     )
     logger.info(f"YOLO config written to {yaml_path}")
     if missing_images:
@@ -333,9 +332,7 @@ def process_skyfusion(
                 continue
 
             lines = anns_by_image.get(image_id, [])
-            label_path.write_text(
-                "\n".join(lines) + ("\n" if lines else ""), encoding="utf-8"
-            )
+            label_path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
 
             if image_dst.exists() and overwrite:
                 image_dst.unlink()
@@ -350,8 +347,7 @@ def process_skyfusion(
 
     yaml_path = _write_data_yaml(output_dir, classes)
     logger.success(
-        "skyfusion processed → "
-        + ", ".join(f"{split}={stats[split]}" for split in YOLO_SPLITS)
+        "skyfusion processed → " + ", ".join(f"{split}={stats[split]}" for split in YOLO_SPLITS)
     )
     logger.info(f"YOLO config written to {yaml_path}")
     if missing_images:

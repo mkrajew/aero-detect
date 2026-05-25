@@ -26,14 +26,10 @@ def is_dataset_downloaded(target_dir: Path) -> bool:
     return target_dir.is_dir() and any(target_dir.iterdir())
 
 
-def download_dataset(
-    name: str, slug: str, output_dir: Path, force: bool = False
-) -> Path:
+def download_dataset(name: str, slug: str, output_dir: Path, force: bool = False) -> Path:
     target_dir = output_dir / name
     if not force and is_dataset_downloaded(target_dir):
-        logger.info(
-            f"{name} dataset already present at {target_dir}, skipping download."
-        )
+        logger.info(f"{name} dataset already present at {target_dir}, skipping download.")
         return target_dir
 
     logger.info(f"Downloading {name} dataset...")
