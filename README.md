@@ -46,6 +46,25 @@ uv run process all
 
 Run `uv run process --help` to see all options.
 
+## Training
+
+Training is implemented in [`aerodetect/modeling/train.py`](aerodetect/modeling/train.py) and uses:
+- [Hydra](https://hydra.cc/) for configuration management
+- [Weights & Biases (wandb)](https://wandb.ai/) for experiment tracking
+
+Before training, make sure your dataset is already processed (for example with `uv run process military`) and that you are authenticated in wandb (for example with `uv run wandb login`).
+
+Important: the training command must specify which Hydra `db` config to use via `+db=<name>`.
+
+Examples:
+
+```bash
+uv run ./aerodetect/modeling/train.py +db=military
+uv run ./aerodetect/modeling/train.py +db=skyfusion
+```
+
+Available `db` configs are in `aerodetect/modeling/conf/db/`.
+
 ## Project Organization
 
 ```
