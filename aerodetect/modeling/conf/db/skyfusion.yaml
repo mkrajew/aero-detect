@@ -1,8 +1,9 @@
 model: "yolo26x.pt"
 project: "skyfusion"
+run: "skyfusion-run-1"
 dataset: "skyfusion/data.yaml"
 epochs: 100
-pateince: 20
+patience: 20
 batch: 64
 imgsz: 640
 device: [0, 1, 2, 3]

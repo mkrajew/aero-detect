@@ -4,13 +4,13 @@ When running this module, you must specify the Hydra `db` group, for example:
 `uv run ./aerodetec/modeling/train.py +db=military`.
 """
 
-from aerodetect.config import PROCESSED_DATA_DIR, MODELING_DIR
-from loguru import logger
-
-from ultralytics import YOLO
 import hydra
+from loguru import logger
 from omegaconf import DictConfig, OmegaConf
+from ultralytics import YOLO
 import wandb
+
+from aerodetect.config import MODELING_DIR, PROCESSED_DATA_DIR
 
 
 @hydra.main(

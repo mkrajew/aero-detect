@@ -24,6 +24,28 @@ uv run dataset all
 
 Run `uv run dataset --help` to see all options.
 
+### Process
+
+`process.py` converts downloaded raw datasets into YOLO-ready layouts:
+
+```text
+<dataset_root>/
+  data.yaml
+  images/train|val|test
+  labels/train|val|test
+```
+
+One or more dataset names can be passed as positional arguments; `all` processes everything:
+
+```bash
+uv run process military
+uv run process skyfusion
+uv run process military skyfusion
+uv run process all
+```
+
+Run `uv run process --help` to see all options.
+
 ## Project Organization
 
 ```

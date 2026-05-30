@@ -1,6 +1,6 @@
 model: "yolo26x.pt"
-project: "military-test"
-run: "military-run-1-test"
+project: "military"
+run: "military-run-1"
 dataset: "military/data.yaml"
 epochs: 100
 patience: 20
