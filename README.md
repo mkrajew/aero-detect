@@ -128,19 +128,28 @@ Available `db` configs are in `aerodetect/modeling/conf/db/`.
 
 --------
 
-# Using slurm
+## Slurm Usage (Helper Notes)
 
-Tutaj na samym koncu chcialbym jeszcze dodac nastepujace informacje o korzystaniu ze slurma. Nie jest to czesc oficjalnej jakiejs dokumentacji ale chcialbym zeby sie znalazlo w readme na koncu pomocniczo. Trzeba tam dopisac nastepujace rzeczy:
-1.  trzeba zaladowac moduly:
+This section is a practical reference for running on Slurm (PLGrid-style setup), not a replacement for your cluster's official documentation.
+
+1. Load required modules:
+
     ```bash
     module load GCCcore/13.3.0
     module load Python/3.12.3
     module load CUDA/12.8.0
     ```
-1. instalujemy `uv`: `pip install uv`
-1. na homie mamy malo miejsca, tylko 10gb, wiec zarowno .venv(bo zajmuje ponad 7gb), .cache jak i datasety chcemy trzymac na scratchu. Zeby to zrobic ustawiamy: 
+
+1. Install `uv`:
+
     ```bash
-    cd /aero-detect
+    pip install uv
+    ```
+
+1. Move environment/cache/datasets to `$SCRATCH` (`HOME` has limited storage):
+
+    ```bash
+    cd /path/to/aero-detect
     uv cache clean
 
     mkdir -p $SCRATCH/aero-detect/
@@ -152,15 +161,29 @@ Tutaj na samym koncu chcialbym jeszcze dodac nastepujace informacje o korzystani
     ln -s $SCRATCH/aero-detect/data data
     mkdir -p data/raw data/processed data/interim data/external
 
-    export UV_CACHE_DIR=$SCRATCH/aero-detect/.cache/uv
+    export UV_CACHE_DIR="$SCRATCH/aero-detect/.cache/uv"
     export UV_PROJECT_ENVIRONMENT="$SCRATCH/aero-detect/.venv"
-    export KAGGLEHUB_CACHE=$SCRATCH/aero-detect/.cache/kagglehub
+    export KAGGLEHUB_CACHE="$SCRATCH/aero-detect/.cache/kagglehub"
     ```
 
-1. przykladowa komenda do otworzenia interaktywnego joba: `srun -A plgzzsn2026-gpu-a100 -p plgrid-gpu-a100 -t 02:00:00 -c 4 --gres=gpu:1 --mem=16G --nodes=1 --pty bash`
-1. teraz mozemy utworzyc srodowisko, pobrac i przetworzyc dane:
+1. Example interactive Slurm session:
+
+    ```bash
+    srun -A plgzzsn2026-gpu-a100 -p plgrid-gpu-a100 -t 02:00:00 -c 4 --gres=gpu:1 --mem=16G --nodes=1 --pty bash
+    ```
+
+1. Prepare environment and data:
+
     ```bash
     uv sync --reinstall
     uv run dataset all
     uv run process all
+    ```
+
+1. Run training (directly or via job scripts):
+
+    ```bash
+    uv run ./aerodetect/modeling/train.py +db=military
+    sbatch scripts/yolo/military.sh
+    sbatch scripts/yolo/skyfusion.sh
     ```
