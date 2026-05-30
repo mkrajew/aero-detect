@@ -93,6 +93,11 @@ Available `db` configs are in `aerodetect/modeling/conf/db/`.
 ├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
 │   └── figures        <- Generated graphics and figures to be used in reporting
 │
+├── scripts            <- Utility scripts, including Slurm job launchers
+│   └── yolo
+│       ├── military.sh   <- Slurm job script for YOLO training (`+db=military`)
+│       └── skyfusion.sh  <- Slurm job script for YOLO training (`+db=skyfusion`)
+│
 ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
 │                         generated with `pip freeze > requirements.txt`
 │
@@ -109,8 +114,13 @@ Available `db` configs are in `aerodetect/modeling/conf/db/`.
     ├── features.py             <- Code to create features for modeling
     │
     ├── modeling                
-    │   ├── __init__.py 
-    │   ├── predict.py          <- Code to run model inference with trained models          
+    │   ├── __init__.py
+    │   ├── conf                <- Hydra config
+    │   │   ├── config.yaml
+    │   │   └── db
+    │   │       ├── military.yaml   <- Hydra training profile for military (`+db=military`)
+    │   │       └── skyfusion.yaml  <- Hydra training profile for skyfusion (`+db=skyfusion`)
+    │   ├── predict.py          <- Code to run model inference with trained models
     │   └── train.py            <- Code to train models
     │
     └── plots.py                <- Code to create visualizations
@@ -118,3 +128,39 @@ Available `db` configs are in `aerodetect/modeling/conf/db/`.
 
 --------
 
+# Using slurm
+
+Tutaj na samym koncu chcialbym jeszcze dodac nastepujace informacje o korzystaniu ze slurma. Nie jest to czesc oficjalnej jakiejs dokumentacji ale chcialbym zeby sie znalazlo w readme na koncu pomocniczo. Trzeba tam dopisac nastepujace rzeczy:
+1.  trzeba zaladowac moduly:
+    ```bash
+    module load GCCcore/13.3.0
+    module load Python/3.12.3
+    module load CUDA/12.8.0
+    ```
+1. instalujemy `uv`: `pip install uv`
+1. na homie mamy malo miejsca, tylko 10gb, wiec zarowno .venv(bo zajmuje ponad 7gb), .cache jak i datasety chcemy trzymac na scratchu. Zeby to zrobic ustawiamy: 
+    ```bash
+    cd /aero-detect
+    uv cache clean
+
+    mkdir -p $SCRATCH/aero-detect/
+    mkdir -p $SCRATCH/aero-detect/data
+    mkdir -p $SCRATCH/aero-detect/.cache/uv
+    mkdir -p $SCRATCH/aero-detect/.cache/kagglehub
+
+    rm -rf data
+    ln -s $SCRATCH/aero-detect/data data
+    mkdir -p data/raw data/processed data/interim data/external
+
+    export UV_CACHE_DIR=$SCRATCH/aero-detect/.cache/uv
+    export UV_PROJECT_ENVIRONMENT="$SCRATCH/aero-detect/.venv"
+    export KAGGLEHUB_CACHE=$SCRATCH/aero-detect/.cache/kagglehub
+    ```
+
+1. przykladowa komenda do otworzenia interaktywnego joba: `srun -A plgzzsn2026-gpu-a100 -p plgrid-gpu-a100 -t 02:00:00 -c 4 --gres=gpu:1 --mem=16G --nodes=1 --pty bash`
+1. teraz mozemy utworzyc srodowisko, pobrac i przetworzyc dane:
+    ```bash
+    uv sync --reinstall
+    uv run dataset all
+    uv run process all
+    ```
