@@ -20,6 +20,9 @@ module load GCCcore/13.3.0
 module load Python/3.12.3
 python --version
 pip install uv
+export UV_CACHE_DIR="$SCRATCH/aero-detect/.cache/uv"
+export UV_PROJECT_ENVIRONMENT="$SCRATCH/aero-detect/.venv"
+export KAGGLEHUB_CACHE="$SCRATCH/aero-detect/.cache/kagglehub"
 
 module load CUDA/12.8.0
 
