@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=military-yolo
+#SBATCH --job-name=military-yolo-zero
 #SBATCH -A plgzzsn2026-gpu-a100
 #SBATCH -p plgrid-gpu-a100
 #SBATCH --nodes=1
@@ -28,4 +28,4 @@ module load CUDA/12.8.0
 
 uv sync
 
-uv run ./aerodetect/modeling/train.py +db=military
+uv run ./aerodetect/modeling/train.py +db=military aug=zero

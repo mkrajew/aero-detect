@@ -1,3 +1,6 @@
 wandb:
   entity: "aerodetect"
   project: "detection-yolo"
+
+defaults:
+  - aug: yolo-default

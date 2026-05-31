@@ -34,6 +34,17 @@ def train(cfg: DictConfig):
         name=cfg.db.run,
         seed=cfg.db.seed,
         workers=cfg.db.workers,
+        # Augmentations
+        scale=cfg.aug.scale,
+        degrees=cfg.aug.degrees,
+        translate=cfg.aug.transalate,
+        shear=cfg.aug.shear,
+        perspective=cfg.aug.perspective,
+        fliplr=cfg.aug.fliplr,
+        flipud=cfg.aug.flipud,
+        hsv_h=cfg.aug.hsv_h,
+        hsv_s=cfg.aug.hsv_s,
+        hsv_v=cfg.aug.hsv_v,
     )
 
     metrics = model.val(
