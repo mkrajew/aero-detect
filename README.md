@@ -49,10 +49,24 @@ Run `uv run process --help` to see all options.
 ## Training
 
 Training is implemented in [`aerodetect/modeling/train.py`](aerodetect/modeling/train.py) and uses:
+
 - [Hydra](https://hydra.cc/) for configuration management
 - [Weights & Biases (wandb)](https://wandb.ai/) for experiment tracking
 
-Before training, make sure your dataset is already processed (for example with `uv run process military`) and that you are authenticated in wandb (for example with `uv run wandb login`).
+Before training:
+
+1. Configure Weights & Biases for this repository:
+
+   ```bash
+   uv run wandb login
+   uv run wandb init
+   ```
+
+   During `wandb init`, select:
+   - entity/team: `aerodetect`
+   - project: `detection-yolo`
+
+1. Make sure your dataset is already processed (for example with `uv run process military`).
 
 Important: the training command must specify which Hydra `db` config to use via `+db=<name>`.
 
@@ -67,7 +81,7 @@ Available `db` configs are in `aerodetect/modeling/conf/db/`.
 
 ## Project Organization
 
-```
+```tree
 ├── LICENSE            <- Open-source license if one is chosen
 ├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
 ├── README.md          <- The top-level README for developers using this project.
@@ -179,6 +193,17 @@ This section is a practical reference for running on Slurm (PLGrid-style setup),
     uv run dataset all
     uv run process all
     ```
+
+1. Configure _Weights & Biases_ for this repository:
+
+    ```bash
+    uv run wandb login
+    uv run wandb init
+    ```
+
+    During `wandb init`, select:
+    - entity/team: `aerodetect`
+    - project: `detection-yolo`
 
 1. Run training (directly or via job scripts):
 

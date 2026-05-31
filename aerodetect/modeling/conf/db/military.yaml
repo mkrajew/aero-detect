@@ -1,5 +1,4 @@
 model: "yolo26x.pt"
-project: "military"
 run: "military-run-1"
 dataset: "military/data.yaml"
 epochs: 100

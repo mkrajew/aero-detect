@@ -1,5 +1,4 @@
 model: "yolo26x.pt"
-project: "skyfusion"
 run: "skyfusion-run-1"
 dataset: "skyfusion/data.yaml"
 epochs: 100
