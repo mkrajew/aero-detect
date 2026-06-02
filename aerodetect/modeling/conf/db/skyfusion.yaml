@@ -1,5 +1,5 @@
 model: "yolo26x.pt"
-run: "skyfusion-run-2-zero-aug"
+run: "skyfusion-run-3-augmentations"
 dataset: "skyfusion/data.yaml"
 epochs: 100
 patience: 20

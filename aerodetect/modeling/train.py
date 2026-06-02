@@ -37,7 +37,7 @@ def train(cfg: DictConfig):
         # Augmentations
         scale=cfg.aug.scale,
         degrees=cfg.aug.degrees,
-        translate=cfg.aug.transalate,
+        translate=cfg.aug.translate,
         shear=cfg.aug.shear,
         perspective=cfg.aug.perspective,
         fliplr=cfg.aug.fliplr,

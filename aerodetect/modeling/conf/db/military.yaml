@@ -1,5 +1,5 @@
 model: "yolo26x.pt"
-run: "military-run-2-zero-aug"
+run: "military-run-3-augmentations"
 dataset: "military/data.yaml"
 epochs: 100
 patience: 20
