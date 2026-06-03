@@ -69,7 +69,6 @@ class RcnnDetector:
     def build_model(self):
         #Build model
         num_classes = self._dataset_ref.get_class_number()
-        print("num_classes =", num_classes)
         model = self._model_ref(
                                #num_classes = num_classes, 
                                 weights='DEFAULT', 
@@ -95,20 +94,20 @@ class RcnnDetector:
             pin_memory=True,
             collate_fn=collate_fn
         )
-
-
-
     def train_one_epoch(self, data_loader, optimizer, epoch_id, tb_writer):
-
         running_losses = defaultdict(float)
         epoch_losses = defaultdict(float)
 
-
         self.model.train()
 
-        for i, (images, targets) in enumerate(tqdm(data_loader)):
+        use_amp = self.device.type == "cuda"
+        scaler = getattr(self, "scaler", None)
+        if scaler is None:
+            self.scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+            scaler = self.scaler
 
-            optimizer.zero_grad()
+        for i, (images, targets) in enumerate(tqdm(data_loader)):
+            optimizer.zero_grad(set_to_none=True)
 
             images = [img.to(self.device) for img in images]
             targets = [
@@ -119,47 +118,40 @@ class RcnnDetector:
                 for t in targets
             ]
 
-            loss_dict = self.model(images, targets)
-            loss = sum(loss_dict.values())
+            with torch.autocast(
+                device_type=self.device.type,
+                dtype=torch.float16,
+                enabled=use_amp,
+            ):
+                loss_dict = self.model(images, targets)
+                loss = sum(loss_dict.values())
 
-            # accumulate interval losses
             for k, v in loss_dict.items():
-                running_losses[k] += v.item()
-                epoch_losses[k] += v.item()
+                running_losses[k] += v.detach().item()
+                epoch_losses[k] += v.detach().item()
 
-            running_losses["loss"] += loss.item()
-            epoch_losses["loss"] += loss.item()
+            running_losses["loss"] += loss.detach().item()
+            epoch_losses["loss"] += loss.detach().item()
 
-            loss.backward()
-            optimizer.step()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
-            # report every 1000 batches
             if (i + 1) % 1000 == 0:
-
-                avg_losses = {
-                    k: v / 1000
-                    for k, v in running_losses.items()
-                }
+                avg_losses = {k: v / 1000 for k, v in running_losses.items()}
 
                 loss_str = " | ".join(
                     f"{k}: {v:.4f}"
                     for k, v in avg_losses.items()
                 )
-
                 print(f"[batch {i+1}] | {loss_str}")
 
-               
-
-                # tb_writer.add_scalars(f"train/batch/combo", avg_losses, global_step= self._global_step)
-                
-                for k,v in avg_losses.items():
-                    tb_writer.add_scalar(f"train/batch/{k}", v, global_step= self._global_step)
-                
+                for k, v in avg_losses.items():
+                    tb_writer.add_scalar(f"train/batch/{k}", v, global_step=self._global_step)
 
                 running_losses.clear()
-                self._global_step+=1
+                self._global_step += 1
 
-        # epoch summary
         num_batches = len(data_loader)
 
         epoch_avg_losses = {
@@ -171,14 +163,10 @@ class RcnnDetector:
             f"{k}: {v:.4f}"
             for k, v in epoch_avg_losses.items()
         )
-
         print(f"Epoch {epoch_id + 1} summary | {loss_str}")
 
-        # tb_writer.add_scalars(f"train/epoch/combo", epoch_avg_losses, global_step= epoch_id + 1)
-        for k,v in epoch_avg_losses.items():
-            tb_writer.add_scalar(f"train/epoch/{k}", v, global_step= epoch_id + 1)
-        
-
+        for k, v in epoch_avg_losses.items():
+            tb_writer.add_scalar(f"train/epoch/{k}", v, global_step=epoch_id + 1)
 
         return epoch_avg_losses["loss"]
 
