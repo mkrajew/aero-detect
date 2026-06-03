@@ -3,4 +3,8 @@ wandb:
   project: "detection-yolo"
 
 defaults:
+<<<<<<< HEAD
   - model: yolo
+=======
+  - aug: yolo-default
+>>>>>>> yolo

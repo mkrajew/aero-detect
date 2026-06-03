@@ -1,5 +1,6 @@
 """Convert raw detection datasets into YOLO-ready layouts.
 
+<<<<<<< HEAD
 Processed datasets use this directory structure::
 
 /
@@ -16,6 +17,22 @@ labels/
 
 Images are shared per split. YOLO labels are written as normalised ``.txt`` files,
 while RCNN labels preserve the source annotation format per image.
+=======
+YOLO expects this directory structure::
+
+    <dataset_root>/
+        data.yaml
+        images/
+            train/  val/  test/
+        labels/
+            train/  val/  test/
+
+Each label file mirrors the image filename and contains one row per box::
+
+    <class_id> <x_center> <y_center> <width> <height>
+
+with all coordinates normalised to ``[0, 1]``.
+>>>>>>> yolo
 """
 
 from __future__ import annotations

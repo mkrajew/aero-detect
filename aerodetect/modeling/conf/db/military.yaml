@@ -1,0 +1,10 @@
+model: "yolo26x.pt"
+run: "military-run-3-augmentations"
+dataset: "military/data.yaml"
+epochs: 100
+patience: 20
+batch: 64
+imgsz: 640
+device: [0, 1, 2, 3]
+seed: 42
+workers: 8
