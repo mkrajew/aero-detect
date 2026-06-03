@@ -1,0 +1,24 @@
+model: "yolo26x.pt"
+run: "military-run-2-zero-aug"
+db:
+  dataset: "military/data.yaml"
+  imgsz: 640
+train:
+  patience: 20
+  epochs: 100
+  batch: 64
+  seed: 42
+  workers: 8
+  device: [0, 1, 2, 3]
+aug:
+  scale: 0.5
+  degrees: 0  
+  translate: 0.1
+  shear: 0
+  perspective: 0.0
+  flipud: 0
+  fliplr: 0.5
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+zero_aug: false 

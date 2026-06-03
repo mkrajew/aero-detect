@@ -1,0 +1,4 @@
+[default]
+entity = aerodetect
+project = detection-yolo
+
