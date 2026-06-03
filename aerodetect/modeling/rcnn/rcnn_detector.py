@@ -5,7 +5,7 @@ from torchvision.transforms.functional import to_pil_image
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 from collections import defaultdict
 from torchvision.utils import draw_bounding_boxes
@@ -54,7 +54,8 @@ class RcnnDetector:
     def build_training_data(self):
          self.train_dataset = self.build_dataset('train')
          self.val_dataset = self.build_dataset('val')
-         return self.build_data_loader(self.train_dataset), self.build_data_loader(self.val_dataset)
+
+         return self.build_data_loader(self.train_dataset), self.build_data_loader(self.val_dataset,False)
 
 
 
@@ -68,7 +69,11 @@ class RcnnDetector:
     def build_model(self):
         #Build model
         num_classes = self._dataset_ref.get_class_number()
-        model = self._model_ref(num_classes = num_classes,trainable_backbone_layers = self.trainable_backbone_layers)
+        print("num_classes =", num_classes)
+        model = self._model_ref(
+                               #num_classes = num_classes, 
+                                weights='DEFAULT', 
+                                trainable_backbone_layers = self.trainable_backbone_layers)
         in_features = model.roi_heads.box_predictor.cls_score.in_features
         model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
         model.to(self.device)
@@ -86,7 +91,7 @@ class RcnnDetector:
             dataset,
             batch_size=2,
             shuffle=shuffle,
-            num_workers=0,
+            num_workers=2,
             pin_memory=True,
             collate_fn=collate_fn
         )
@@ -145,7 +150,7 @@ class RcnnDetector:
 
                
 
-                tb_writer.add_scalars(f"train/batch/combo", avg_losses, global_step= self._global_step)
+                # tb_writer.add_scalars(f"train/batch/combo", avg_losses, global_step= self._global_step)
                 
                 for k,v in avg_losses.items():
                     tb_writer.add_scalar(f"train/batch/{k}", v, global_step= self._global_step)
@@ -169,7 +174,7 @@ class RcnnDetector:
 
         print(f"Epoch {epoch_id + 1} summary | {loss_str}")
 
-        tb_writer.add_scalars(f"train/epoch/combo", epoch_avg_losses, global_step= epoch_id + 1)
+        # tb_writer.add_scalars(f"train/epoch/combo", epoch_avg_losses, global_step= epoch_id + 1)
         for k,v in epoch_avg_losses.items():
             tb_writer.add_scalar(f"train/epoch/{k}", v, global_step= epoch_id + 1)
         
@@ -206,7 +211,7 @@ class RcnnDetector:
                 metric.update(outputs, targets)
 
 
-                if not visualized:
+                if i in  [1,2,4,5]:
 
                     img = (images[0].cpu() * 255).to(torch.uint8)
 
@@ -229,12 +234,12 @@ class RcnnDetector:
                     )
 
                     tb_writer.add_image(
-                        "val/epoch/predictions",
+                        f"val/epoch/predictions{i}",
                         img_with_boxes,
                         epoch,
                     )
 
-                    visualized = True
+                   
 
 
         results = metric.compute()
@@ -249,7 +254,7 @@ class RcnnDetector:
 
 
     def train(self):
-
+        best_map = 0.0
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         tb_writer = SummaryWriter(
               f"runs/{self.model_name}_{timestamp}"
@@ -303,15 +308,15 @@ class RcnnDetector:
                 epoch,
             )
 
-            tb_writer.add_scalars(
-                "val-epoch-combo",
-                {
-                    "mAP": results["map"].item(),
-                    "mAP@50": results["map_50"].item(),
-                    "mAP@75": results["map_75"].item(),
-                },
-                epoch,
-            )
+            # tb_writer.add_scalars(
+            #     "val-epoch-combo",
+            #     {
+            #         "mAP": results["map"].item(),
+            #         "mAP@50": results["map_50"].item(),
+            #         "mAP@75": results["map_75"].item(),
+            #     },
+            #     epoch,
+            # )
 
 
             current_map = results["map"].item()
@@ -329,6 +334,6 @@ class RcnnDetector:
 
 
 if __name__ == "__main__":
-    RcnnDetector = RcnnDetector(model_name = 'fasterrcnn_resnet50_fpn', dataset_name = 'military',  lr=0.003,epochs=3, batchsize =22, augs=[],  trainable_backbone_layers=3)
+    RcnnDetector = RcnnDetector(model_name = 'fasterrcnn_resnet50_fpn', dataset_name = 'military',  lr=1e-4,epochs=8, batchsize =22, augs=[],  trainable_backbone_layers=3)
 
     RcnnDetector.train()
