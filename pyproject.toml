@@ -18,10 +18,8 @@ dependencies = [
   "pycocotools>=2.0.11",
   "python-dotenv",
   "ruff",
-<<<<<<< Updated upstream
   "tqdm",
   "typer",
-=======
   "tensorboard>=2.20.0",
   "torch==2.8.0",
   "torchmetrics>=1.9.0",
@@ -45,7 +43,6 @@ torch = [
 ]
 torchvision = [
   { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
->>>>>>> Stashed changes
 ]
 
 [project.scripts]
