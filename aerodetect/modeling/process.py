@@ -1,23 +1,5 @@
 """Convert raw detection datasets into YOLO-ready layouts.
 
-<<<<<<< HEAD
-Processed datasets use this directory structure::
-
-/
-data.yaml
-images/
-  train/ val/ test/
-labels/
-  train/
-    yolo/ rcnn/
-  val/
-    yolo/ rcnn/
-  test/
-    yolo/ rcnn/
-
-Images are shared per split. YOLO labels are written as normalised ``.txt`` files,
-while RCNN labels preserve the source annotation format per image.
-=======
 YOLO expects this directory structure::
 
     <dataset_root>/
@@ -32,7 +14,6 @@ Each label file mirrors the image filename and contains one row per box::
     <class_id> <x_center> <y_center> <width> <height>
 
 with all coordinates normalised to ``[0, 1]``.
->>>>>>> yolo
 """
 
 from __future__ import annotations
@@ -52,6 +33,8 @@ from aerodetect.config import PROCESSED_DATA_DIR, RAW_DATA_DIR
 
 app = typer.Typer()
 
+
+# Map CSV split labels to the directory names YOLO expects.
 SPLIT_MAP: dict[str, str] = {
     "train": "train",
     "validation": "val",
@@ -60,7 +43,6 @@ SPLIT_MAP: dict[str, str] = {
 }
 
 YOLO_SPLITS: tuple[str, ...] = ("train", "val", "test")
-LABEL_FORMATS: tuple[str, ...] = ("yolo", "rcnn")
 SKYFUSION_SPLIT_MAP: dict[str, str] = {
     "train": "train",
     "val": "valid",
@@ -79,17 +61,18 @@ class ProcessDataset(str, Enum):
     all = "all"
 
 
-def _ensure_dataset_dirs(root: Path) -> None:
+def _ensure_yolo_dirs(root: Path) -> None:
     for split in YOLO_SPLITS:
         (root / "images" / split).mkdir(parents=True, exist_ok=True)
-        for label_format in LABEL_FORMATS:
-            (root / "labels" / split / label_format).mkdir(parents=True, exist_ok=True)
+        (root / "labels" / split).mkdir(parents=True, exist_ok=True)
 
 
 def _to_yolo_bbox(
     xmin: float, ymin: float, xmax: float, ymax: float, width: int, height: int
 ) -> tuple[float, float, float, float]:
     """Convert an absolute (xmin, ymin, xmax, ymax) box to YOLO format."""
+
+    # Clamp to the image bounds in case the annotations spill over.
     xmin = max(0.0, min(float(xmin), float(width)))
     xmax = max(0.0, min(float(xmax), float(width)))
     ymin = max(0.0, min(float(ymin), float(height)))
@@ -135,7 +118,28 @@ def process_military(
     transfer_mode: TransferMode = TransferMode.move,
     overwrite: bool = False,
 ) -> Path:
-    """Convert the military aircraft dataset into a shared-image YOLO/RCNN layout."""
+    """Convert the military aircraft dataset into a YOLO layout.
+
+    Parameters
+    ----------
+    source_dir:
+        Folder containing raw military images.
+        Defaults to ``data/raw/military/dataset``.
+    output_dir:
+        Destination root for processed military data.
+        Defaults to ``data/processed/military``.
+    transfer_mode:
+        ``move`` to relocate the images, ``copy`` to keep the source intact.
+    overwrite:
+        When ``True`` re-create labels and re-transfer images even if a label
+        file already exists at the destination.
+
+    Returns
+    -------
+    Path
+        The dataset root containing ``images/``, ``labels/`` and ``data.yaml``.
+    """
+
     military_raw = RAW_DATA_DIR / "military"
     labels_csv = military_raw / "labels_with_split.csv"
     source_dir = source_dir or military_raw / "dataset"
@@ -173,7 +177,7 @@ def process_military(
     class_to_id = {name: idx for idx, name in enumerate(classes)}
     logger.info(f"Found {len(classes)} classes and {df['filename'].nunique()} images")
 
-    _ensure_dataset_dirs(output_dir)
+    _ensure_yolo_dirs(output_dir)
 
     stats = {split: 0 for split in YOLO_SPLITS}
     missing_images: list[str] = []
@@ -181,16 +185,10 @@ def process_military(
     grouped = df.groupby("filename", sort=False)
     for filename, rows in tqdm(grouped, total=grouped.ngroups, desc="military"):
         split = SPLIT_MAP[rows["split"].iloc[0]]
-        yolo_label_path = output_dir / "labels" / split / "yolo" / f"{filename}.txt"
-        rcnn_label_path = output_dir / "labels" / split / "rcnn" / f"{filename}.csv"
+        label_path = output_dir / "labels" / split / f"{filename}.txt"
         image_dst = output_dir / "images" / split / f"{filename}{ext}"
 
-        if (
-            yolo_label_path.exists()
-            and rcnn_label_path.exists()
-            and image_dst.exists()
-            and not overwrite
-        ):
+        if label_path.exists() and image_dst.exists() and not overwrite:
             stats[split] += 1
             continue
 
@@ -215,8 +213,7 @@ def process_military(
             missing_images.append(image_src.name)
             continue
 
-        yolo_label_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        rows.to_csv(rcnn_label_path, index=False)
+        label_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
         if image_dst.exists() and overwrite:
             image_dst.unlink()
@@ -250,7 +247,8 @@ def process_skyfusion(
     transfer_mode: TransferMode = TransferMode.copy,
     overwrite: bool = False,
 ) -> Path:
-    """Convert SkyFusion into a shared-image YOLO/RCNN layout."""
+    """Convert SkyFusion (fixed COCO layout) into a YOLO layout."""
+
     source_dir = source_dir or RAW_DATA_DIR / "skyfusion" / "SkyFusion"
     output_dir = output_dir or PROCESSED_DATA_DIR / "skyfusion"
 
@@ -278,7 +276,7 @@ def process_skyfusion(
     category_to_class_id = {int(category["id"]): idx for idx, category in enumerate(categories)}
     logger.info(f"Found {len(classes)} classes in SkyFusion")
 
-    _ensure_dataset_dirs(output_dir)
+    _ensure_yolo_dirs(output_dir)
 
     stats = {split: 0 for split in YOLO_SPLITS}
     missing_images: list[str] = []
@@ -288,14 +286,11 @@ def process_skyfusion(
         split_dir = split_dirs[split]
         image_by_id = {int(image["id"]): image for image in payload["images"]}
         anns_by_image: dict[int, list[str]] = defaultdict(list)
-        raw_anns_by_image: dict[int, list[dict]] = defaultdict(list)
 
         for ann in payload["annotations"]:
             image = image_by_id.get(int(ann["image_id"]))
             if image is None:
                 continue
-
-            raw_anns_by_image[int(ann["image_id"])] .append(ann)
 
             class_id = category_to_class_id.get(int(ann["category_id"]))
             if class_id is None:
@@ -315,7 +310,7 @@ def process_skyfusion(
             if bw <= 0 or bh <= 0:
                 continue
 
-            anns_by_image[int(ann["image_id"])] .append(
+            anns_by_image[int(ann["image_id"])].append(
                 f"{class_id} {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}"
             )
 
@@ -326,15 +321,9 @@ def process_skyfusion(
 
             image_src = split_dir / file_name
             image_dst = output_dir / "images" / split / file_name
-            yolo_label_path = output_dir / "labels" / split / "yolo" / f"{stem}.txt"
-            rcnn_label_path = output_dir / "labels" / split / "rcnn" / f"{stem}.json"
+            label_path = output_dir / "labels" / split / f"{stem}.txt"
 
-            if (
-                yolo_label_path.exists()
-                and rcnn_label_path.exists()
-                and image_dst.exists()
-                and not overwrite
-            ):
+            if label_path.exists() and image_dst.exists() and not overwrite:
                 stats[split] += 1
                 continue
 
@@ -343,18 +332,7 @@ def process_skyfusion(
                 continue
 
             lines = anns_by_image.get(image_id, [])
-            yolo_label_path.write_text(
-                "\n".join(lines) + ("\n" if lines else ""), encoding="utf-8"
-            )
-
-            rcnn_payload = {
-                "image": image,
-                "annotations": raw_anns_by_image.get(image_id, []),
-            }
-            rcnn_label_path.write_text(
-                json.dumps(rcnn_payload, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
+            label_path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
 
             if image_dst.exists() and overwrite:
                 image_dst.unlink()
@@ -427,7 +405,8 @@ def main(
         help="Move or copy SkyFusion images.",
     ),
 ) -> None:
-    """Convert selected raw datasets into shared-image YOLO/RCNN layouts."""
+    """Convert selected raw datasets into YOLO-ready layouts."""
+
     if any(d == ProcessDataset.all for d in datasets):
         targets = [ProcessDataset.military, ProcessDataset.skyfusion]
     else:

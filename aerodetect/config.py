@@ -22,6 +22,7 @@ REPORTS_DIR = PROJ_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
 
 MODELING_DIR = PROJ_ROOT / "aerodetect" / "modeling"
+RCNN_CHECKPOINTS_DIR = PROJ_ROOT / "aerodetect" / "modeling" / "rcnn" / "checkpoints"
 
 # If tqdm is installed, configure loguru with tqdm.write
 # https://github.com/Delgan/loguru/issues/135
