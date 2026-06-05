@@ -21,7 +21,7 @@ class MilitaryDataset(Dataset):
         self,
         split: str,
         img_size: int = 800,
-        augment: bool = False,
+        augment: str = "",
     ):
         self.split = split
         self.img_size = img_size
@@ -52,23 +52,26 @@ class MilitaryDataset(Dataset):
        
 
         self.transforms = self._build_transforms()
-
     def _build_transforms(self):
         ops = [
             T.ToImage(),
             T.Resize((self.img_size, self.img_size)),
         ]
 
-        if self.augment:
-            ops.extend(
-                [
-                    T.RandomHorizontalFlip(p=0.5),
-                    T.RandomPhotometricDistort(),
-                ]
-            )
+        if self.augment == "light":
+            ops.extend([
+                T.RandomHorizontalFlip(p=0.5),
+                T.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.15, hue=0.02),
+            ])
+
+        elif self.augment == "medium":
+            ops.extend([
+                T.RandomHorizontalFlip(p=0.5),
+                T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.03),
+                T.RandomPhotometricDistort(p=0.5),
+            ])
 
         ops.append(T.ToDtype(torch.float32, scale=True))
-
         return T.Compose(ops)
 
     def __len__(self):
