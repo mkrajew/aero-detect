@@ -16,14 +16,15 @@ RUNS = [
         # },
         {
             "run_name": "rs50_military_best_cfg",
-            "lr": 0.003,          # more aggressive than 0.001
+            "lr": 0.0015,          # more aggressive than 0.001
             "epochs": 80,          # strict cap
             "batchsize": 48,      # keep this if GPU is tight
             "img_size": 800,
             "augs": "light",      # turn on light augs
             "weighted_sampling": True,
             "optimizer_name": "sgd",
-            "scheduler_name": "none"
+            "scheduler_name": "none",
+            "resume_from": "aerodetect/detection-yolo/fasterrcnn_resnet50_fpn-best-model:v77"  
         },
 ]
 
