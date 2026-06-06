@@ -3,17 +3,17 @@ from aerodetect.modeling.rcnn.rcnn_detector import RcnnDetector
 
 RUNS = [
         {
-        "run_name": "resnet_skyfusion_continue_best_cfg",
-        "lr": 0.003,
-        "epochs": 50,  
-        "batchsize": 32,
-        "img_size": 800,
-        "augs": "light",
-        "weighted_sampling": True,
-        "optimizer_name": "sgd",
-        "scheduler_name": "none",
-         "resume_from": "aerodetect/detection-yolo/fasterrcnn_resnet50_fpn-best-model:v78",  
-        },
+        # "run_name": "resnet_skyfusion_continue_best_cfg",
+        # "lr": 0.003,
+        # "epochs": 50,  
+        # "batchsize": 32,
+        # "img_size": 800,
+        # "augs": "light",
+        # "weighted_sampling": True,
+        # "optimizer_name": "sgd",
+        # "scheduler_name": "none",
+        #  "resume_from": "aerodetect/detection-yolo/fasterrcnn_resnet50_fpn-best-model:v78",  
+        # },
         {
         "run_name": "mbv3_skyfusion_bestcfg_800_32_anchor",
         "lr": 0.003,
