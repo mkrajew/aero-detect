@@ -22,7 +22,7 @@ class Dataset(str, Enum):
 def main(
     checkpoint: Path,
     dataset: Dataset,
-    experiment: str = "experiment",
+    experiment: str = "3-aug",
     device: str = "0",
     batch: int = 16,
     imgsz: int = 640,
@@ -31,7 +31,9 @@ def main(
 ):
     """Calculate accuracy, error and inference-speed statistics."""
 
-    output_dir = (REPORTS_DIR / "evaluation" / f"{experiment}-{dataset.value}").resolve()
+    output_dir = (
+        REPORTS_DIR / "evaluation" / f"{experiment}-{dataset.value}"
+    ).resolve()
     results = YOLO(checkpoint).val(
         data=PROCESSED_DATA_DIR / dataset.value / "data.yaml",
         split="test",
@@ -72,11 +74,17 @@ def main(
                 "experiment": experiment,
                 "dataset": dataset.value,
                 "checkpoint": str(checkpoint),
-                "images": len(list((PROCESSED_DATA_DIR / dataset.value / "images/test").iterdir())),
+                "images": len(
+                    list((PROCESSED_DATA_DIR / dataset.value / "images/test").iterdir())
+                ),
                 "instances": int(results.nt_per_class.sum()),
                 "precision": precision,
                 "recall": recall,
-                "f1": 2 * precision * recall / (precision + recall) if precision + recall else 0,
+                "f1": (
+                    2 * precision * recall / (precision + recall)
+                    if precision + recall
+                    else 0
+                ),
                 "mAP50": map50,
                 "mAP50-95": map50_95,
                 "TP": int(true_positives.sum()),
