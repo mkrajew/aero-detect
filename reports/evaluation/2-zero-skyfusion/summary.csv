@@ -1,0 +1,2 @@
+experiment,dataset,checkpoint,images,instances,precision,recall,f1,mAP50,mAP50-95,TP,FP,FN,preprocess_ms,inference_ms,postprocess_ms,total_ms,fps,efficiency_score
+2-zero,skyfusion,yolo\runs\detect\detection-yolo\skyfusion-run-2-zero-aug\weights\best.pt,449,11751,0.7906169320935597,0.6515003909671853,0.7143485930409758,0.6050236295199097,0.33751847413081537,7612,1711,4139,0.23017505511541939,30.447363919310916,0.12130512288649191,30.798844097312827,32.46875099728984,11.085310210278923

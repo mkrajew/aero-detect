@@ -1,0 +1,2 @@
+experiment,dataset,checkpoint,images,instances,precision,recall,f1,mAP50,mAP50-95,TP,FP,FN,preprocess_ms,inference_ms,postprocess_ms,total_ms,fps,efficiency_score
+3-aug,military,yolo\runs\detect\detection-yolo\military-run-3-augmentations\weights\best.pt,1544,2769,0.8746836971536276,0.7694328217306573,0.8186893538171266,0.7707411670627126,0.6980851324660439,2159,463,610,0.15552351023541003,35.30174993576332,0.11931107491990696,35.57658452091864,28.10837559215419,19.77480248815743
