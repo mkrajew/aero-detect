@@ -47,7 +47,7 @@ if __name__ == "__main__":
                 pretrained=True,
                 class_metrics=True,
                 use_amp=True,
-                sweep_name="sky_fusion_sweep",
+                sweep_name="military_run",
                 **cfg,
             )
     
