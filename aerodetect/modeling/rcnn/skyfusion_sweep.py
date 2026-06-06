@@ -4,11 +4,11 @@ from aerodetect.modeling.rcnn.rcnn_detector import RcnnDetector
 RUNS = [
         {
         "run_name": "resnet_skyfusion_best_cfg",
-        "lr": 0.001,
+        "lr": 0.0025,
         "epochs": 80,  
-        "batchsize": 32,
+        "batchsize": 48,
         "img_size": 800,
-        "augs": "medium",
+        "augs": "light",
         "weighted_sampling": True,
         "optimizer_name": "sgd",
         "scheduler_name": "none" 
