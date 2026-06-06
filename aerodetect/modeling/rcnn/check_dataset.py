@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 from aerodetect.modeling.rcnn.military_dataset import MilitaryDataset
+from aerodetect.modeling.rcnn.skyfusion_dataset import SkyFusionDataset
 
 
 def save_visualization(

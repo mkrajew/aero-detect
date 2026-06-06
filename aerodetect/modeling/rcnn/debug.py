@@ -7,7 +7,7 @@ from torchvision.utils import draw_bounding_boxes
 from torchvision.transforms.functional import to_pil_image
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
-from military_dataset import MilitaryDataset
+from aerodetect.modeling.rcnn.skyfusion_dataset import SkyFusionDataset
 
 
 def collate_fn(batch):
@@ -23,13 +23,13 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("device:", device)
 
-    img_size = 800
+    img_size = 640
     sample_idx = 1
     num_steps = 300
     lr = 0.001
     score_thresh = 0.05
 
-    dataset = MilitaryDataset(split="train", img_size=img_size, augment=False)
+    dataset = SkyFusionDataset(split="train", img_size=img_size, augment=False)
     subset = Subset(dataset, [sample_idx])
 
     loader = DataLoader(

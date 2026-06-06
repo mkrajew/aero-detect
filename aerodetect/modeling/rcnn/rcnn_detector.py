@@ -16,9 +16,11 @@ from torchvision.transforms.functional import to_pil_image
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 from tqdm import tqdm
 import wandb
+from torchvision.models.detection.rpn import AnchorGenerator
 
 
 from military_dataset import MilitaryDataset
+from skyfusion_dataset import SkyFusionDataset
 from aerodetect.config import RCNN_CHECKPOINTS_DIR
 
 
@@ -31,7 +33,7 @@ MODEL_REGISTRY = {
 
 DATASET_REGISTRY = {
     "military": MilitaryDataset,
-    "skyfusion": None,
+    "skyfusion": SkyFusionDataset,
 }
 
 
@@ -52,6 +54,7 @@ class RcnnDetector:
         trainable_backbone_layers=3,
         pretrained=True,
         weighted_sampling=False,
+        downscale_anchor = False,
         img_size=640,
         warmup_epochs=0,
         momentum=0.9,
@@ -105,6 +108,7 @@ class RcnnDetector:
         self.run_name = run_name
         self.sweep_name = sweep_name
         self.resume_from = resume_from
+        self.downscale_anchor = downscale_anchor
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.num_classes = num_classes if num_classes is not None else self._dataset_ref.get_class_number()
@@ -130,7 +134,7 @@ class RcnnDetector:
         train_sampler = None
         train_shuffle = self.shuffle_train
 
-        if self.weighted_sampling:
+        if self.weighted_sampling : #and self.dataset_name == "military":
             if isinstance(train_dataset, Subset):
                 base_dataset = train_dataset.dataset
                 base_weights = torch.tensor(base_dataset.build_sampling_weight_map(), dtype=torch.double)
@@ -179,6 +183,7 @@ class RcnnDetector:
         )
 
     def build_model(self):
+        model = None
         if self.pretrained:
             model = self._model_ref(
                 weights="DEFAULT",
@@ -192,8 +197,34 @@ class RcnnDetector:
                 trainable_backbone_layers=self.trainable_backbone_layers,
             )
 
+        
+        if self.downscale_anchor:
+            anchor_sizes = (
+                (16, 32, 64, 128, 256),
+                (16, 32, 64, 128, 256),
+                (16, 32, 64, 128, 256),
+            )
+
+            aspect_ratios = (
+                (0.5, 1.0, 2.0),
+                (0.5, 1.0, 2.0),
+                (0.5, 1.0, 2.0),
+            )
+
+            anchor_generator = AnchorGenerator(
+                sizes=anchor_sizes,
+                aspect_ratios=aspect_ratios,
+            )
+
+            model.rpn.anchor_generator = anchor_generator
+            
+            
+          
         model.to(self.device)
         self.model = model
+  
+
+       
 
     def build_optimizer(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
