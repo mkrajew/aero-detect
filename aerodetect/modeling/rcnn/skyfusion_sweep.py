@@ -2,7 +2,7 @@ from aerodetect.modeling.rcnn.rcnn_detector import RcnnDetector
 
 
 RUNS = [
-        {
+        #{
         # "run_name": "resnet_skyfusion_continue_best_cfg",
         # "lr": 0.003,
         # "epochs": 50,  
