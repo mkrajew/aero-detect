@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
 
+
 import torch
 from torch.utils.data import DataLoader, WeightedRandomSampler, Subset
 from torchvision.models.detection import (
@@ -16,6 +17,7 @@ from torchmetrics.detection.mean_ap import MeanAveragePrecision
 from tqdm import tqdm
 import wandb
 
+
 from military_dataset import MilitaryDataset
 from aerodetect.config import RCNN_CHECKPOINTS_DIR
 
@@ -25,6 +27,7 @@ MODEL_REGISTRY = {
     "fasterrcnn_resnet50_fpn_v2": fasterrcnn_resnet50_fpn_v2,
     "fasterrcnn_resnet50_fpn": fasterrcnn_resnet50_fpn,
 }
+
 
 DATASET_REGISTRY = {
     "military": MilitaryDataset,
@@ -59,15 +62,16 @@ class RcnnDetector:
         scheduler_gamma=0.1,
         use_amp=True,
         class_metrics=True,
-        eval_score_threshold=0.5,
+        eval_score_threshold=0.3,
         log_prediction_batches=(1, 2, 4, 5),
         subset_train_size=None,
         subset_val_size=None,
         shuffle_train=True,
         num_classes=None,
         save_best_metric="map",
-        run_name = None,
-        sweep_name = None
+        run_name=None,
+        sweep_name=None,
+        resume_from=None,
     ):
         self.model_name = model_name
         self.dataset_name = dataset_name
@@ -100,6 +104,7 @@ class RcnnDetector:
         self.save_best_metric = save_best_metric
         self.run_name = run_name
         self.sweep_name = sweep_name
+        self.resume_from = resume_from
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.num_classes = num_classes if num_classes is not None else self._dataset_ref.get_class_number()
@@ -248,6 +253,35 @@ class RcnnDetector:
 
         raise ValueError(f"Unsupported scheduler_name: {self.scheduler_name}")
 
+    def _load_resume_weights_from_wandb(self, run):
+        if self.resume_from is None:
+            return
+
+        if not isinstance(self.resume_from, str):
+            raise ValueError("resume_from must be a W&B artifact string")
+
+        print(f"[INFO] Downloading checkpoint artifact: {self.resume_from}")
+
+        resume_root = RCNN_CHECKPOINTS_DIR   # or any Path you prefer
+        resume_root.mkdir(parents=True, exist_ok=True)
+
+        artifact = run.use_artifact(self.resume_from, type="model")
+        artifact_dir = Path(artifact.download(root=str(resume_root)))
+
+        pt_files = list(artifact_dir.rglob("*.pt"))
+        if not pt_files:
+            raise FileNotFoundError(
+                f"No .pt checkpoint file found in artifact: {self.resume_from}"
+            )
+
+        checkpoint_path = pt_files[0]
+        print(f"[INFO] Loading model state_dict from: {checkpoint_path}")
+
+        state_dict = torch.load(checkpoint_path, map_location=self.device)
+        self.model.load_state_dict(state_dict)
+
+        print("[INFO] Model weights loaded successfully from W&B artifact")
+
     def _move_batch_to_device(self, images, targets):
         images = [img.to(self.device) for img in images]
         targets = [
@@ -322,9 +356,17 @@ class RcnnDetector:
                 if i in self.log_prediction_batches:
                     img = (images[0].cpu() * 255).to(torch.uint8)
 
-                    pred_boxes = outputs_cpu[0]["boxes"]
-                    pred_labels = outputs_cpu[0]["labels"]
-                    pred_scores = outputs_cpu[0]["scores"]
+
+                    score_thresh = self.eval_score_threshold  # e.g. 0.5
+
+                    pred_boxes_all = outputs_cpu[0]["boxes"]
+                    pred_labels_all = outputs_cpu[0]["labels"]
+                    pred_scores_all = outputs_cpu[0]["scores"]
+
+                    keep = pred_scores_all >= score_thresh
+                    pred_boxes = pred_boxes_all[keep]
+                    pred_labels = pred_labels_all[keep]
+                    pred_scores = pred_scores_all[keep]
 
                     gt_boxes = targets_cpu[0]["boxes"]
                     gt_labels = targets_cpu[0]["labels"]
@@ -385,8 +427,8 @@ class RcnnDetector:
         run = wandb.init(
             project="detection-yolo",
             name=runname,
-            reinit= True,
-            group = self.sweep_name ,
+            reinit=True,
+            group=self.sweep_name,
             config={
                 "model_name": self.model_name,
                 "dataset_name": self.dataset_name,
@@ -411,6 +453,7 @@ class RcnnDetector:
                 "subset_train_size": self.subset_train_size,
                 "subset_val_size": self.subset_val_size,
                 "device": str(self.device),
+                "resume_from": self.resume_from,
             },
         )
 
@@ -418,6 +461,8 @@ class RcnnDetector:
         optimizer = self.build_optimizer()
         lr_scheduler = self.build_scheduler(optimizer)
         eval_metric = MeanAveragePrecision(class_metrics=self.class_metrics)
+
+        self._load_resume_weights_from_wandb(run)
 
         for epoch in range(self.epochs):
             print(f"\n=== Epoch {epoch + 1}/{self.epochs} ===")
@@ -437,36 +482,34 @@ class RcnnDetector:
             val_metrics = {k: v for k, v in val_metrics.items() if v is not None}
             run.log(val_metrics)
 
+            if self.class_metrics and "classes" in results and "map_per_class" in results:
+                classes = results["classes"]
+                map_pc = results["map_per_class"]
+                mar_pc = results.get("mar_100_per_class", None)
 
-        if self.class_metrics and "classes" in results and "map_per_class" in results:
-            classes = results["classes"]
-            map_pc = results["map_per_class"]
-            mar_pc = results.get("mar_100_per_class", None)
+                if classes.ndim == 1 and map_pc.ndim == 1 and classes.numel() == map_pc.numel():
+                    idx_to_class = (
+                        self.val_dataset.idx_to_class
+                        if hasattr(self.val_dataset, "idx_to_class")
+                        else self.val_dataset.dataset.idx_to_class
+                    )
 
-            # Only proceed if these are 1D tensors with more than one class
-            if classes.ndim == 1 and map_pc.ndim == 1 and classes.numel() == map_pc.numel():
-                idx_to_class = (
-                    self.val_dataset.idx_to_class
-                    if hasattr(self.val_dataset, "idx_to_class")
-                    else self.val_dataset.dataset.idx_to_class
-                )
+                    mar_iter = mar_pc if (mar_pc is not None and mar_pc.ndim == 1) else None
 
-                mar_iter = mar_pc if (mar_pc is not None and mar_pc.ndim == 1) else None
+                    for i in range(classes.numel()):
+                        cls_id = int(classes[i].item())
+                        cls_map = float(map_pc[i].item())
+                        cls_name = idx_to_class.get(cls_id, f"class_{cls_id}")
 
-                for i in range(classes.numel()):
-                    cls_id = int(classes[i].item())
-                    cls_map = float(map_pc[i].item())
-                    cls_name = idx_to_class.get(cls_id, f"class_{cls_id}")
+                        if cls_map >= 0:
+                            run.summary[f"val/per_class/mAP/{cls_name}"] = cls_map
 
-                    if cls_map >= 0:
-                        run.summary[f"val/per_class/mAP/{cls_name}"] = cls_map
-
-                    if mar_iter is not None:
-                        cls_mar = float(mar_iter[i].item())
-                        if cls_mar >= 0:
-                            run.summary[f"val/per_class/mAR@100/{cls_name}"] = cls_mar
-            else:
-                print("[WARN] Skipping per-class logging: MAP metric returned scalars.")
+                        if mar_iter is not None:
+                            cls_mar = float(mar_iter[i].item())
+                            if cls_mar >= 0:
+                                run.summary[f"val/per_class/mAR@100/{cls_name}"] = cls_mar
+                else:
+                    print("[WARN] Skipping per-class logging: MAP metric returned scalars.")
 
             current_value = results[self.save_best_metric].item()
             if current_value > best_metric_value:
@@ -518,7 +561,8 @@ if __name__ == "__main__":
         class_metrics=True,
         subset_train_size=1,
         subset_val_size=1,
-        use_amp=True
-     
+        use_amp=True,
+        # Example:
+        # resume_from="aerodetect/detection-yolo/fasterrcnn_mobilenet_v3_large_fpn-best-model:v176",
     )
     detector.train()

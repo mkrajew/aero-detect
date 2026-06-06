@@ -55,7 +55,7 @@ class MilitaryDataset(Dataset):
     def _build_transforms(self):
         ops = [
             T.ToImage(),
-            T.Resize((self.img_size)),
+            T.Resize((self.img_size, self.img_size)),
         ]
 
         if self.augment == "light":
