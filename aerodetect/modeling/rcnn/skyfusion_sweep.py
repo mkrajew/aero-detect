@@ -2,29 +2,28 @@ from aerodetect.modeling.rcnn.rcnn_detector import RcnnDetector
 
 
 RUNS = [
-        #{
-        # "run_name": "resnet_skyfusion_continue_best_cfg",
+        {
+        "run_name": "resnet_skyfusion_best_cfg",
+        "lr": 0.001,
+        "epochs": 80,  
+        "batchsize": 32,
+        "img_size": 800,
+        "augs": "medium",
+        "weighted_sampling": True,
+        "optimizer_name": "sgd",
+        "scheduler_name": "none" 
+        },
+        # {
+        # "run_name": "mbv3_skyfusion_bestcfg_800_32_anchor",
         # "lr": 0.003,
         # "epochs": 50,  
         # "batchsize": 32,
         # "img_size": 800,
         # "augs": "light",
         # "weighted_sampling": True,
+        # "downscale_anchor": True,
         # "optimizer_name": "sgd",
-        # "scheduler_name": "none",
-        #  "resume_from": "aerodetect/detection-yolo/fasterrcnn_resnet50_fpn-best-model:v78",  
-        # },
-        {
-        "run_name": "mbv3_skyfusion_bestcfg_800_32_anchor",
-        "lr": 0.003,
-        "epochs": 50,  
-        "batchsize": 32,
-        "img_size": 800,
-        "augs": "light",
-        "weighted_sampling": True,
-        "downscale_anchor": True,
-        "optimizer_name": "sgd",
-        "scheduler_name": "none"    },
+        # "scheduler_name": "none"    },
 ]
 
 
@@ -41,7 +40,7 @@ if __name__ == "__main__":
             detector = RcnnDetector(
                 model_name=model_name,
                 dataset_name="skyfusion",
-                num_workers=4,
+                num_workers=5,
                 trainable_backbone_layers=3,
                 pretrained=True,
                 class_metrics=True,

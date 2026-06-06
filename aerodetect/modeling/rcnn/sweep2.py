@@ -3,14 +3,14 @@ from aerodetect.modeling.rcnn.rcnn_detector import RcnnDetector
 
 RUNS = [
         {
-        "run_name": "skyfusion_resnet_bestcfg_lr005_800",
-        "lr": 0.003,
+        "run_name": "skyfusion_mbv3_bestcfg_lr005_800",
+        "lr": 0.005,
         "epochs": 50,  
-        "batchsize": 32,
+        "batchsize": 16,
         "img_size": 800,
-        "augs": "light",
+        "augs": "medium",
         "weighted_sampling": True,
-        # "downscale_anchor": True,
+        "downscale_anchor": True,
         "optimizer_name": "sgd",
         "scheduler_name": "none"    },
 ]
@@ -21,7 +21,7 @@ if __name__ == "__main__":
         try:
 
             detector = RcnnDetector(
-                model_name="fasterrcnn_resnet50_fpn",
+                model_name="fasterrcnn_mobilenet_v3_large_fpn",
                 dataset_name="skyfusion",
                 num_workers=2,
                 trainable_backbone_layers=3,
