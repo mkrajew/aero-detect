@@ -12,7 +12,7 @@ RUNS = [
         "weighted_sampling": True,
         "optimizer_name": "sgd",
         "scheduler_name": "none",
-         "resume_from": "aerodetect/detection-yolo/fasterrcnn_resnet50_fpn-best-model:v52",  
+         "resume_from": "aerodetect/detection-yolo/fasterrcnn_resnet50_fpn-best-model:v78",  
         },
         {
         "run_name": "mbv3_skyfusion_bestcfg_800_32_anchor",
