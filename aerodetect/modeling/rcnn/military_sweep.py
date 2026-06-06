@@ -24,7 +24,7 @@ RUNS = [
             "weighted_sampling": True,
             "optimizer_name": "sgd",
             "scheduler_name": "none",
-            "resume_from": "aerodetect/detection-yolo/fasterrcnn_resnet50_fpn-best-model:v77"  
+            "resume_from": "aerodetect/detection-yolo/fasterrcnn_resnet50_fpn-best-model:v67"  
         },
 ]
 
@@ -33,14 +33,10 @@ if __name__ == "__main__":
     for cfg in RUNS:
         try:
             
-            model_name = (
-                "fasterrcnn_mobilenet_v3_large_fpn"
-                if cfg["run_name"].startswith("mbv3")
-                else "fasterrcnn_resnet50_fpn"
-            )
+            
 
             detector = RcnnDetector(
-                model_name=model_name,
+                model_name="fasterrcnn_resnet50_fpn",
                 dataset_name="military",
                 num_workers=4,
                 trainable_backbone_layers=3,
