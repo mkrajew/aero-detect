@@ -23,8 +23,7 @@ RUNS = [
             "augs": "light",      # turn on light augs
             "weighted_sampling": True,
             "optimizer_name": "sgd",
-            "scheduler_name": "none",
-            "resume_from": "aerodetect/detection-yolo/fasterrcnn_resnet50_fpn-best-model:v52",
+            "scheduler_name": "none"
         },
 ]
 
@@ -41,7 +40,7 @@ if __name__ == "__main__":
 
             detector = RcnnDetector(
                 model_name=model_name,
-                dataset_name="skyfusion",
+                dataset_name="military",
                 num_workers=4,
                 trainable_backbone_layers=3,
                 pretrained=True,
