@@ -16,11 +16,11 @@ RUNS = [
         # },
         {
             "run_name": "rs50_military_best_cfg",
-            "lr": 0.0015,          # more aggressive than 0.001
-            "epochs": 80,          # strict cap
-            "batchsize": 48,      # keep this if GPU is tight
+            "lr": 0.0015,          
+            "epochs": 80,         
+            "batchsize": 48,      
             "img_size": 640,
-            "augs": "light",      # turn on light augs
+            "augs": "light",      
             "weighted_sampling": True,
             "optimizer_name": "sgd",
             "scheduler_name": "none",
